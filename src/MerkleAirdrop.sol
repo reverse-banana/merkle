@@ -7,7 +7,6 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
 import {console} from "forge-std/console.sol";
 
 contract MerkleAirdrop {
-    // if for some reason can't send token for the address sameerc20 lib will hangle it
     using SafeERC20 for IERC20;
 
     error MerkleAirdrop__InvalidProof();
@@ -26,7 +25,25 @@ contract MerkleAirdrop {
         i_airdropToken = airdropToken;
     }
 
-    function claim(address account, uint256 amount, bytes32[] calldata merkleProof) public {
+    /**@notice due to the problem with leaf proof generation I have to hard copy the function
+     * from the HelperScript to the contract
+     * bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(account, amount))))
+     * wasn't working due to the different encoding of the bytes
+     */
+    function ltrim64(bytes memory _bytes) public pure returns (bytes memory) {
+        require(_bytes.length >= 64, "ltrim64: input less than 64 bytes");
+        bytes memory result = new bytes(_bytes.length - 64);
+        for (uint i = 64; i < _bytes.length; i++) {
+            result[i - 64] = _bytes[i];
+        }
+        return result;
+    }
+
+    function claim(
+        address account,
+        uint256 amount,
+        bytes32[] calldata merkleProof
+    ) public {
         // by default the bool value in mapping is false
         // but to due to the nature of suntax and contex here the if (s_hasClaimed[account])
         // mean that if it's true cause if we want to check negative value
@@ -35,35 +52,17 @@ contract MerkleAirdrop {
             revert MerkleAirdrop__AlreadyClaimed();
         }
 
-        console.log("Claiming for %s", account);
-        console.log("Amount: %d", amount);
+        bytes32[] memory data = new bytes32[](2);
+        data[0] = bytes32(uint256(uint160(account)));
+        data[1] = bytes32(amount);
 
-            bytes32[] memory data = new bytes32[](2);
-            data[0] = bytes32(uint256(uint160(account)));
-            data[1] = bytes32(amount);
-
-        
-        
-        
-
-
-        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encodePacked(account, amount))));
-        // hashing twice as good practice to mitigate the pre-image attack
+        bytes memory encodedData = abi.encode(data);
+        bytes memory trimmedData = ltrim64(encodedData);
+        bytes32 leaf1 = keccak256(bytes.concat(keccak256(trimmedData)));
         console.log("Calculated leaf:");
-        console.logBytes32(leaf);
+        console.logBytes32(leaf1);
 
-
-        bytes32 leafFromOutput = 0xd1445c931158119b00449ffcac3c947d028c0c359c34a6646d95962b3b55c6ad;
-        bytes32 leafWithSingleHash = keccak256(abi.encodePacked(account, amount));
-
-
-
-        console.log("Expected leaf:");
-        console.logBytes32(leafFromOutput);
-        console.log("Leaf with single hash:");
-        console.logBytes32(leafWithSingleHash);
-
-        if (!MerkleProof.verify(merkleProof, i_merkleRoot, leaf)) {
+        if (!MerkleProof.verify(merkleProof, i_merkleRoot, leaf1)) {
             revert MerkleAirdrop__InvalidProof();
         }
         s_hasClaimed[account] = true;
