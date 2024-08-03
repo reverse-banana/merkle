@@ -25,7 +25,8 @@ contract MerkleAirdrop {
         i_airdropToken = airdropToken;
     }
 
-    /**@notice due to the problem with leaf proof generation I have to hard copy the function
+    /**
+     * @notice due to the problem with leaf proof generation I have to hard copy the function
      * from the HelperScript to the contract
      * bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(account, amount))))
      * wasn't working due to the different encoding of the bytes
@@ -33,17 +34,13 @@ contract MerkleAirdrop {
     function ltrim64(bytes memory _bytes) public pure returns (bytes memory) {
         require(_bytes.length >= 64, "ltrim64: input less than 64 bytes");
         bytes memory result = new bytes(_bytes.length - 64);
-        for (uint i = 64; i < _bytes.length; i++) {
+        for (uint256 i = 64; i < _bytes.length; i++) {
             result[i - 64] = _bytes[i];
         }
         return result;
     }
 
-    function claim(
-        address account,
-        uint256 amount,
-        bytes32[] calldata merkleProof
-    ) public {
+    function claim(address account, uint256 amount, bytes32[] calldata merkleProof) public {
         // by default the bool value in mapping is false
         // but to due to the nature of suntax and contex here the if (s_hasClaimed[account])
         // mean that if it's true cause if we want to check negative value
